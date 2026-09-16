@@ -1,5 +1,7 @@
 # git-doc-viewer
 
+**中文** · [English](README.en.md)
+
 在浏览器里按**版本**阅读一个 Git 仓库中的 Markdown 文档，切换**语言版本**，并把任意两个版本**逐段渲染对比**或**逐行源码对比**。零依赖：Python 3.9+ 标准库 + 系统 `git`，前端纯静态。
 
 ## 快速开始
@@ -58,6 +60,43 @@ python3 -m gitdocview export --repo ~/repo --out dist/repo-docs.html
 
 - `translation_commit_pattern`：译文若在另一条分支上、按「译文同步至 dev-v0.45.0」这样的提交信息落地，会被匹配到对应标签的版本里。
 - `changelog_file`：若文档目录里有它，`## [tag] - date`（或 `## tag`）分节会显示为各版本的 CHANGELOG 条目。
+
+## 语言切换
+
+译文靠**文件名后缀**识别，不看文件内容。规则由 `scan.lang_suffixes` 决定：键是语言代码，值是该语言的文件后缀；不带任何配置后缀、只以 `.md` 结尾的文件是**原文**。
+
+默认配置 `{"zh": ".zh.md"}` 表示：
+
+```
+docs/guide.md        ← 原文（工具栏里显示为 base_lang_label，默认 "English"）
+docs/guide.zh.md     ← 它的中文版（显示为 lang_labels.zh，默认 "中文"）
+```
+
+如果你的译文用的是 `xxx.cn.md` 这样的命名，把后缀改成 `.cn.md` 即可：
+
+```json
+"scan": {
+  "lang_suffixes": {"cn": ".cn.md"},
+  "lang_labels": {"cn": "简体中文"}
+}
+```
+
+要同时支持多种语言，多加几项即可，工具栏会为每种语言各显示一个按钮：
+
+```json
+"scan": {
+  "base_lang_label": "中文",
+  "lang_suffixes": {"en": ".en.md", "ja": ".ja.md"},
+  "lang_labels": {"en": "English", "ja": "日本語"}
+}
+```
+
+注意事项：
+
+- 后缀匹配**不区分大小写**，且从最长的后缀开始匹配，所以 `.zh-Hant.md` 和 `.zh.md` 可以共存。
+- 语言代码本身可以随意取（`zh` / `cn` / `chinese` 都行），它只是 `lang_labels` 的键和 URL 里的标识；没有配 `lang_labels` 时按钮上直接显示代码。
+- 译文与原文必须在**同一目录、同一主名**下（`a/b.md` ↔ `a/b.cn.md`），否则不会被当作同一份文档。
+- 某个版本缺少译文时会回退显示原文并给出提示；译文如果在另一条分支上，可用 `translation_commit_pattern` 关联到对应标签（见上节）。
 
 ## 结构
 
