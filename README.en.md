@@ -107,7 +107,7 @@ gitdocview/
   repo.py       git operations: tags / commits / ls-tree / cat-file / working-tree hash-object / CHANGELOG sections
   config.py     config file read/write and defaults
   export.py     builds the single-file HTML (data embedded as gzip+base64)
-  static/       index.html · app.css · app.js (includes the diff engine) · marked.min.js
+  static/       index.html · favicon.svg · app.css · app.js (includes the diff engine) · marked.min.js
 ```
 
 The server only listens on the local loopback address, the directory-browsing API lists directory names only, and file reads are restricted to Markdown files inside the docs directory.

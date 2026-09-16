@@ -107,7 +107,7 @@ gitdocview/
   repo.py       git 操作：标签 / 提交 / ls-tree / cat-file / 工作区 hash-object / CHANGELOG 分节
   config.py     配置文件读写与默认值
   export.py     生成单文件 HTML（数据 gzip+base64 内嵌）
-  static/       index.html · app.css · app.js（含 diff 引擎）· marked.min.js
+  static/       index.html · favicon.svg · app.css · app.js（含 diff 引擎）· marked.min.js
 ```
 
 服务只监听本机回环地址，浏览目录的 API 只列出目录名，读取文件仅限文档目录内的 Markdown。

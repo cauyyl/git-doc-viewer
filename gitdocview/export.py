@@ -28,6 +28,7 @@ def export(repo, docs, out, config, mode='tags'):
         with io.open(os.path.join(STATIC, name), encoding='utf-8') as f:
             return f.read()
     html = read('index.html')
+    html = html.replace('href="favicon.svg"', 'href="data:image/svg+xml;base64,' + base64.b64encode(read('favicon.svg').encode('utf-8')).decode('ascii') + '"')
     html = html.replace('<link rel="stylesheet" href="app.css">', '<style>\n' + read('app.css') + '\n</style>')
     html = html.replace('<script src="marked.min.js"></script>', '<script>' + read('marked.min.js').replace('</script', '<\\/script') + '</script>')
     html = html.replace('<script src="app.js"></script>', '<script id="embed" type="application/octet-stream">' + b64 + '</script>\n<script>' + read('app.js').replace('</script', '<\\/script') + '</script>')
