@@ -1,0 +1,4 @@
+#!/bin/sh
+# Launch git-doc-viewer from anywhere: bin/gitdocview [--repo PATH] [--docs PATH] [--port N] | export ...
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+PYTHONPATH="$ROOT${PYTHONPATH:+:$PYTHONPATH}" exec python3 -m gitdocview "$@"

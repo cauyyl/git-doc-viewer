@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>git-doc-viewer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=Source+Serif+4:ital,wght@0,400;0,600;1,400&display=swap">
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<div class="app" id="app">
+  <header class="top">
+    <button class="tbtoggle" id="tbToggle" title="展开 / 折叠工具栏 (t)" aria-expanded="true"><span class="chev"></span></button>
+    <div class="brand"><span id="brandName">git-doc-viewer</span> <small id="brandSub"></small></div>
+    <span class="sp"></span>
+    <button class="link" id="ovLink">版本总览</button>
+    <div class="seg" id="langSeg" role="group" aria-label="语言"></div>
+    <button class="ib" id="settingsBtn" title="外观设置 (,)">⚙</button>
+  </header>
+
+  <div class="toolbar" id="toolbar">
+    <div class="field grow">
+      <label for="repoInput">Git 仓库</label>
+      <div class="inrow"><input id="repoInput" class="mono" placeholder="/path/to/repo" spellcheck="false"><button class="ib" id="repoBrowse" title="浏览…">…</button></div>
+    </div>
+    <div class="field grow">
+      <label for="docsInput">文档目录 <span class="sub"><input type="checkbox" id="sameChk" checked> 与仓库相同</span></label>
+      <div class="inrow"><input id="docsInput" class="mono" placeholder="默认与仓库相同" spellcheck="false" disabled><button class="ib" id="docsBrowse" title="浏览…" disabled>…</button></div>
+    </div>
+    <div class="field">
+      <label for="srcSel">版本来源</label>
+      <select id="srcSel"><option value="tags">Git 标签</option><option value="commits">提交记录</option></select>
+    </div>
+    <div class="field">
+      <label for="recentSel">最近打开</label>
+      <select id="recentSel"><option value="">—</option></select>
+    </div>
+    <div class="field actions">
+      <label>&nbsp;</label>
+      <button class="primary" id="openBtn">打开</button>
+    </div>
+  </div>
+
+  <nav class="left">
+    <section>
+      <h4>版本</h4>
+      <div class="verrow">
+        <button class="ib" id="verPrev" title="上一版本 (←)">‹</button>
+        <select id="verSel"></select>
+        <button class="ib" id="verNext" title="下一版本 (→)">›</button>
+      </div>
+      <div class="vdate" id="verDate"></div>
+    </section>
+    <section>
+      <h4>视图</h4>
+      <div class="modes" id="modes">
+        <button data-mode="read">阅读 <kbd>1</kbd></button>
+        <button data-mode="diff">对比（渲染） <kbd>2</kbd></button>
+        <button data-mode="source">对比（源码） <kbd>3</kbd></button>
+      </div>
+      <div class="baserow" id="baseRow">
+        <label for="baseSel">比较基准</label>
+        <select id="baseSel"></select>
+      </div>
+    </section>
+    <section class="docsec">
+      <h4>文档</h4>
+      <div class="doclist" id="docList"></div>
+    </section>
+    <div class="foot" id="foot"></div>
+  </nav>
+
+  <main id="main">
+    <div class="page" id="page"><div class="loading">正在加载…</div></div>
+  </main>
+
+  <aside class="right" id="right"></aside>
+</div>
+
+<!-- directory picker -->
+<div class="modal hidden" id="picker">
+  <div class="dialog">
+    <div class="dhead"><strong id="pickTitle">选择文件夹</strong><button class="ib" id="pickClose" title="关闭">×</button></div>
+    <div class="crumbs" id="pickCrumbs"></div>
+    <div class="dirs" id="pickDirs"></div>
+    <div class="dfoot"><span class="mono small" id="pickPath"></span><span class="sp"></span><button id="pickOk" class="primary">选择此文件夹</button></div>
+  </div>
+</div>
+
+<!-- appearance settings -->
+<div class="drawer hidden" id="drawer">
+  <div class="dhead">
+    <strong>外观配置</strong>
+    <span class="dirty hidden" id="dirty">未保存</span>
+    <span class="sp"></span>
+    <div class="seg small" id="drawerTabs"><button data-tab="form" aria-pressed="true">表单</button><button data-tab="json" aria-pressed="false">JSON</button></div>
+    <button class="ib" id="drawerClose" title="关闭">×</button>
+  </div>
+  <div class="dbody" id="drawerForm"></div>
+  <div class="dbody hidden" id="drawerJson">
+    <p class="hint">整个配置文件。修改后点「应用」即时生效，「保存」写回文件。也可以直接用编辑器改文件，页面会自动重新加载。</p>
+    <textarea id="jsonArea" class="mono" spellcheck="false"></textarea>
+    <div class="row"><button id="jsonApply">应用</button><span class="err" id="jsonErr"></span></div>
+  </div>
+  <div class="dfoot">
+    <span class="mono small" id="cfgPath"></span>
+    <span class="sp"></span>
+    <button id="cfgReload" title="放弃未保存的修改，重新从文件加载">重新加载</button>
+    <button class="primary" id="cfgSave">保存</button>
+  </div>
+</div>
+
+<script src="marked.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
