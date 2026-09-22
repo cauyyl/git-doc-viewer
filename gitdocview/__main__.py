@@ -23,6 +23,8 @@ def main(argv=None):
     e.add_argument('--docs')
     e.add_argument('--out', default='docsite.html')
     e.add_argument('--mode', choices=['tags', 'commits'], default='tags')
+    for sp in (s, e):  # allow --config after the (possibly implicit) subcommand too
+        sp.add_argument('--config', default=argparse.SUPPRESS, help=argparse.SUPPRESS)
 
     argv = list(sys.argv[1:] if argv is None else argv)
     if not argv or argv[0].startswith('-') and argv[0] not in ('-h', '--help', '--version'):

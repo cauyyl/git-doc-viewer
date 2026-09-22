@@ -38,11 +38,11 @@ const api={
 
 /* ================= state ================= */
 let D=null,VI={},CFG=null,CFG_MTIME=0,CFG_PATH='';
-const S={view:'doc',doc:'',ver:null,base:'prev',lang:'base',mode:'read',only:false,repo:'',docs:'',src:'tags'};
+const S={view:'doc',doc:'',ver:null,base:'prev',lang:'base',mode:'read',only:false,repo:'',docs:'',src:'tags',bil:'side'};
 function restore(defaults){
   try{Object.assign(S,JSON.parse(localStorage.getItem('gdv-state')||'{}'));}catch(e){}
   const h=new URLSearchParams(location.hash.replace(/^#/,''));
-  for(const k of ['view','doc','ver','base','lang','mode','repo','docs','src'])if(h.has(k))S[k]=h.get(k);
+  for(const k of ['view','doc','ver','base','lang','mode','repo','docs','src','bil'])if(h.has(k))S[k]=h.get(k);
   if(h.has('only'))S.only=h.get('only')==='1';
   if(defaults&&defaults.repo){S.repo=defaults.repo;S.docs=defaults.docs||'';}
   if(EMBED){S.repo=defaults.repo;S.docs=defaults.docs;}
@@ -50,17 +50,18 @@ function restore(defaults){
   if(!['read','diff','source'].includes(S.mode))S.mode='read';
   if(!['doc','overview'].includes(S.view))S.view='doc';
   if(!['tags','commits'].includes(S.src))S.src='tags';
+  if(!['side','stack'].includes(S.bil))S.bil='side';
 }
 function normalize(){
   if(!D)return;
   if(!S.ver||VI[S.ver]==null)S.ver=D.versions[D.versions.length-1].id;
   if(!D.docs_list.some(d=>d.id===S.doc))S.doc=(D.docs_list[0]||{}).id||'';
   if(S.base!=='prev'&&VI[S.base]==null)S.base='prev';
-  if(S.lang!=='base'&&!D.langs.includes(S.lang))S.lang='base';
+  if(S.lang!=='base'&&!D.langs.includes(effLang()))S.lang='base';
 }
 function persist(){
   try{localStorage.setItem('gdv-state',JSON.stringify(S));}catch(e){}
-  const h=new URLSearchParams();for(const k of ['repo','docs','src','view','doc','ver','base','lang','mode'])if(S[k])h.set(k,S[k]);h.set('only',S.only?'1':'0');
+  const h=new URLSearchParams();for(const k of ['repo','docs','src','view','doc','ver','base','lang','mode','bil'])if(S[k])h.set(k,S[k]);h.set('only',S.only?'1':'0');
   history.replaceState(null,'','#'+h.toString());
 }
 function set(patch){Object.assign(S,patch);render();}
@@ -71,7 +72,10 @@ const nextId=t=>{const i=VI[t];return i<D.versions.length-1?D.versions[i+1].id:n
 const hasDoc=(t,doc)=>!!(ver(t)&&ver(t).files[doc]);
 const hasLang=(t,doc,lang)=>{const f=ver(t)&&ver(t).files[doc];return !!(f&&f[lang]!=null);};
 const shaOf=(t,doc,lang)=>{const f=ver(t)&&ver(t).files[doc];if(!f)return null;return lang!=='base'&&f[lang]!=null?f[lang]:f.base;};
-const langLabel=l=>l==='base'?(CFG.scan.base_lang_label||'原文'):((CFG.scan.lang_labels||{})[l]||l);
+const langLabel=l=>l==='base'?(CFG.scan.base_lang_label||'原文'):l.startsWith('bi:')?langLabel('base')+' / '+langLabel(l.slice(3)):((CFG.scan.lang_labels||{})[l]||l);
+/* 'bi:zh' = bilingual view of base + zh; effLang() is the translation language it maps to */
+const biLang=()=>S.lang.startsWith('bi:')?S.lang.slice(3):null;
+const effLang=()=>biLang()||S.lang;
 function baseId(){if(S.base==='prev')return prevId(S.ver);return VI[S.base]!=null&&S.base!==S.ver?S.base:prevId(S.ver);}
 function nearestLang(t,doc,lang){for(let i=VI[t]-1;i>=0;i--){const v=D.versions[i];if(v.files[doc]&&v.files[doc][lang]!=null)return v.id;}return null;}
 function changedDocs(t){const v=ver(t),p=prevId(t)&&ver(prevId(t));const out=[];for(const d of D.docs_list){const f=v.files[d.id];if(!f)continue;const pf=p&&p.files[d.id];if(!pf)out.push({id:d.id,neu:true});else if((pf.base||'')!==(f.base||''))out.push({id:d.id,neu:false});}return out;}
@@ -129,7 +133,8 @@ function fillToolbar(){
   $('#srcSel').value=S.src;
   const rec=(CFG.recent||[]);$('#recentSel').innerHTML='<option value="">—</option>'+rec.map((r,i)=>`<option value="${i}">${esc(r.repo.replace(/^\/Users\/[^/]+/,'~'))}${r.docs!==r.repo?' → '+esc(r.docs.slice(r.repo.length+1)):''}</option>`).join('');
   const langs=['base'].concat(D?D.langs:Object.keys(CFG.scan.lang_suffixes||{}));
-  $('#langSeg').innerHTML=langs.map(l=>`<button data-lang="${l}" aria-pressed="${String(S.lang===l)}">${esc(langLabel(l))}</button>`).join('');
+  const btn=(l,title)=>`<button data-lang="${esc(l)}" aria-pressed="${String(S.lang===l)}"${title?` title="${esc(title)}"`:''}>${esc(langLabel(l))}</button>`;
+  $('#langSeg').innerHTML=langs.map(l=>btn(l)).concat(langs.slice(1).map(l=>btn('bi:'+l,`${langLabel('base')} 与 ${langLabel(l)} 逐段对照`))).join('');
 }
 function bindToolbar(){
   $('#tbToggle').addEventListener('click',()=>{const c=!$('#toolbar').classList.contains('hidden');toolbarCollapsed(c);CFG.toolbar_collapsed=c;api.saveConfig(CFG).then(r=>{CFG_MTIME=r.mtime;}).catch(()=>{});});
@@ -214,7 +219,7 @@ function bind(){
   $('#verNext').addEventListener('click',()=>{const n=nextId(S.ver);if(n)set({ver:n,view:'doc'});});
   $('#baseSel').addEventListener('change',e=>set({base:e.target.value}));
   $('#modes').addEventListener('click',e=>{const b=e.target.closest('button');if(b)set({mode:b.dataset.mode,view:'doc'});});
-  $('#langSeg').addEventListener('click',e=>{const b=e.target.closest('button');if(b)set({lang:b.dataset.lang});});
+  $('#langSeg').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;const l=b.dataset.lang;set(l.startsWith('bi:')?{lang:l,mode:'read',view:'doc'}:{lang:l});});
   $('#docList').addEventListener('click',e=>{const b=e.target.closest('button');if(b&&!b.disabled)set({doc:b.dataset.doc,view:'doc'});});
   $('#ovLink').addEventListener('click',()=>set({view:S.view==='overview'?'doc':'overview'}));
   document.addEventListener('keydown',e=>{
@@ -260,7 +265,7 @@ async function render(){
   persist();renderControls();
   if(!D)return;
   const seq=++renderSeq,page=$('#page'),right=$('#right');
-  $('#main').scrollTop=0;
+  $('#main').scrollTop=0;page.classList.remove('wide');
   try{
     if(S.view==='overview'){renderOverview(page,right);return;}
     if(!hasDoc(S.ver,S.doc)){page.innerHTML=`<div class="banner">文档 <b>${esc(S.doc)}</b> 在 ${esc(ver(S.ver).label)} 中不存在。</div>`;right.innerHTML='';return;}
@@ -270,12 +275,12 @@ async function render(){
   }catch(e){if(seq===renderSeq){page.innerHTML=`<div class="banner err">渲染失败：${esc(e.message)}</div>`;console.error(e);}}
 }
 function metaLine(){
-  const has=S.lang==='base'||hasLang(S.ver,S.doc,S.lang);
+  const has=S.lang==='base'||hasLang(S.ver,S.doc,effLang());
   return `<div class="docmeta"><span class="tag">${esc(ver(S.ver).label)}</span><span>${ver(S.ver).date}</span><span>${esc(langLabel(S.lang))}${has?'':'（本版本无此语言，显示原文）'}</span></div>`;
 }
 function changelogBox(t){const v=ver(t);if(!v.changelog)return '';return `<details class="cl"><summary>本版本 CHANGELOG <span class="mono">${esc(v.label)}</span></summary><div class="body">${marked.parse(v.changelog)}</div></details>`;}
 function langBanner(){
-  if(S.lang!=='base'&&!hasLang(S.ver,S.doc,S.lang)){const nz=nearestLang(S.ver,S.doc,S.lang);return `<div class="banner">${esc(ver(S.ver).label)} 没有此文档的${esc(langLabel(S.lang))}版本，以下显示原文。${nz?`最近的${esc(langLabel(S.lang))}版本是 <a href="#" data-goto-ver="${esc(nz)}">${esc(ver(nz).label)}</a>。`:''}</div>`;}
+  if(S.lang!=='base'&&!hasLang(S.ver,S.doc,effLang())){const L=effLang(),nz=nearestLang(S.ver,S.doc,L);return `<div class="banner">${esc(ver(S.ver).label)} 没有此文档的${esc(langLabel(L))}版本，以下显示原文。${nz?`最近的${esc(langLabel(L))}版本是 <a href="#" data-goto-ver="${esc(nz)}">${esc(ver(nz).label)}</a>。`:''}</div>`;}
   return '';
 }
 function afterInsert(root){
@@ -294,14 +299,16 @@ function afterInsert(root){
 
 /* ---------- read ---------- */
 async function renderRead(page,right,seq){
-  const md=await api.blob(shaOf(S.ver,S.doc,S.lang));if(seq!==renderSeq)return;
+  const bl=biLang();
+  if(bl&&hasLang(S.ver,S.doc,bl))return renderBilingual(page,right,seq,bl);
+  const md=await api.blob(shaOf(S.ver,S.doc,effLang()));if(seq!==renderSeq)return;
   page.innerHTML=metaLine()+langBanner()+changelogBox(S.ver)+`<article class="doc">${marked.parse(md)}</article>`;
   afterInsert(page);buildToc(page.querySelector('article'),right);
 }
-function buildToc(article,right){
-  const hs=[...article.querySelectorAll('h2,h3')];
-  if(!hs.length){right.innerHTML='<div class="empty">本文档没有小节。</div>';return;}
-  right.innerHTML=`<h4>目录 <span class="mono">${hs.filter(h=>h.tagName==='H2').length} 节</span></h4><div class="toc">${hs.map(h=>`<a href="#${h.id}" class="${h.tagName==='H3'?'l3':''}" data-id="${h.id}">${esc(h.textContent.replace(/#$/,''))}</a>`).join('')}</div>`;
+function buildToc(article,right,sel='h2,h3',prefix=''){
+  const hs=[...article.querySelectorAll(sel)];
+  if(!hs.length){right.innerHTML=prefix+'<div class="empty">本文档没有小节。</div>';return;}
+  right.innerHTML=prefix+`<h4>目录 <span class="mono">${hs.filter(h=>h.tagName==='H2').length} 节</span></h4><div class="toc">${hs.map(h=>`<a href="#${h.id}" class="${h.tagName==='H3'?'l3':''}" data-id="${h.id}">${esc(h.textContent.replace(/#$/,''))}</a>`).join('')}</div>`;
   right.querySelectorAll('.toc a').forEach(a=>a.addEventListener('click',e=>{e.preventDefault();const h=document.getElementById(a.dataset.id);if(h)h.scrollIntoView();}));
   spy(hs,right);
 }
@@ -317,6 +324,72 @@ function spy(hs,right){
     if(best!==current){current=best;Object.values(links).forEach(a=>a.classList.remove('on'));const a=links[best.id];if(a){a.classList.add('on');a.scrollIntoView({block:'nearest'});}}
   },{root:main,rootMargin:'-80px 0px -60% 0px',threshold:[0,1]});
   hs.forEach(h=>spyObs.observe(h));
+}
+
+/* ---------- bilingual (side-by-side) ---------- */
+/* Align two Markdown documents block by block. Blocks are the same units the rendered diff
+   uses (splitBlocks). Each block gets a structural signature (heading level, fence, table,
+   list, ...); a global alignment (Needleman-Wunsch, gaps free) pairs blocks so that identical
+   signatures match, and ties among same-type blocks are broken by tokens that survive
+   translation: inline code, URLs, numbers and Latin identifiers. */
+function blockSig(b){
+  if(isHeading(b))return 'h'+b.match(/^#+/)[0].length;
+  if(isFence(b)){const m=b.match(/^\s{0,3}(?:`{3,}|~{3,})\s*([\w+.-]*)/);return 'fence:'+(m?m[1].toLowerCase():'');}
+  const lines=b.split('\n'),f=lines[0];
+  if(lines.length>=2&&isTableRow(f)&&isTableSep(lines[1]))return 'table';
+  if(/^\s{0,3}([-*_])(\s*\1){2,}\s*$/.test(b))return 'hr';
+  if(/^\s*([-*+]|\d+[.)])\s/.test(f))return 'list';
+  if(/^\s*>/.test(f))return 'quote';
+  if(/^\s*<\/?[a-zA-Z]/.test(f))return 'html';
+  if(/^\s*!\[/.test(f))return 'img';
+  return 'p';
+}
+const INV=/`[^`]+`|https?:\/\/[^\s)\]>]+|\d+(?:\.\d+)*|[A-Za-z][A-Za-z0-9_\-]{2,}/g;
+const TEXTY=new Set(['p','list','quote']);
+function invBag(b){const m=new Map();let n=0;for(const t of (b.match(INV)||[])){const k=t.toLowerCase().replace(/[.,;:!?。，；：！？]+$/,'');n++;m.set(k,(m.get(k)||0)+1);}return {m,n};}
+function bagSim(x,y){if(!x.n||!y.n)return 0;let c=0;for(const [t,k] of x.m){const q=y.m.get(t);if(q)c+=Math.min(k,q);}return 2*c/(x.n+y.n);}
+function alignBlocks(A,B){
+  const sa=A.map(blockSig),sb=B.map(blockSig),ba=A.map(invBag),bb=B.map(invBag);
+  const n=A.length,m=B.length,W=m+1;
+  const score=(i,j)=>{if(sa[i]===sb[j])return 1+bagSim(ba[i],bb[j]);if(TEXTY.has(sa[i])&&TEXTY.has(sb[j]))return .2+.5*bagSim(ba[i],bb[j]);return -1;};
+  const T=new Float64Array((n+1)*W);
+  for(let i=1;i<=n;i++)for(let j=1;j<=m;j++){const d=T[(i-1)*W+j-1]+score(i-1,j-1);T[i*W+j]=Math.max(d,T[(i-1)*W+j],T[i*W+j-1]);}
+  const rows=[];let i=n,j=m;
+  /* backtrack; on ties prefer a gap so that equally good pairings fall in document order */
+  while(i>0||j>0){
+    const cur=T[i*W+j];
+    if(i>0&&j>0){const s=score(i-1,j-1);if(s>0&&cur===T[(i-1)*W+j-1]+s&&cur>T[(i-1)*W+j]&&cur>T[i*W+j-1]){rows.push([A[i-1],B[j-1]]);i--;j--;continue;}}
+    if(i>0&&(j===0||cur===T[(i-1)*W+j])){rows.push([A[i-1],null]);i--;}
+    else if(j>0&&(i===0||cur===T[i*W+j-1])){rows.push([null,B[j-1]]);j--;}
+    else{rows.push([A[i-1],B[j-1]]);i--;j--;}
+  }
+  return rows.reverse();
+}
+async function renderBilingual(page,right,seq,lang){
+  const [a,b]=await Promise.all([api.blob(shaOf(S.ver,S.doc,'base')),api.blob(shaOf(S.ver,S.doc,lang))]);
+  if(seq!==renderSeq)return;
+  const t0=performance.now();
+  const rows=alignBlocks(splitBlocks(a),splitBlocks(b));
+  let paired=0,gaps=0;
+  const html=rows.map(([l,r])=>{
+    if(l&&r)paired++;else gaps++;
+    const h=isHeading(l||r)?' bi-h bi-h'+(l||r).match(/^#+/)[0].length:'';
+    return `<div class="bi-row${h}"><div class="bi-cell bi-l${l?'':' gap'}">${l?marked.parse(l):''}</div><div class="bi-cell bi-r${r?'':' gap'}">${r?marked.parse(r):''}</div></div>`;
+  }).join('');
+  const dt=Math.round(performance.now()-t0);
+  const stack=S.bil==='stack';
+  page.classList.toggle('wide',!stack);
+  page.innerHTML=metaLine()+changelogBox(S.ver)+`<article class="doc bi${stack?' stack':''}"><div class="bi-head"><span>${esc(langLabel('base'))}</span><span>${esc(langLabel(lang))}</span></div>${html}</article>`;
+  afterInsert(page);
+  const tools=`<h4>双语对照 <span class="mono">${paired} 对 · ${gaps} 无对应 · ${dt}ms</span></h4>
+    <div class="railtools"><label>排版</label><div class="seg small" id="biLayout"><button data-l="side" aria-pressed="${!stack}">左右</button><button data-l="stack" aria-pressed="${stack}">上下</button></div></div>`;
+  buildToc(page.querySelector('article'),right,'.bi-l h2,.bi-l h3',tools);
+  $('#biLayout').addEventListener('click',e=>{
+    const btn=e.target.closest('button');if(!btn)return;
+    S.bil=btn.dataset.l;persist();const st=S.bil==='stack';
+    page.querySelector('article.bi').classList.toggle('stack',st);page.classList.toggle('wide',!st);
+    $('#biLayout').querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',String(x.dataset.l===S.bil)));
+  });
 }
 
 /* ---------- overview ---------- */
@@ -481,7 +554,7 @@ function blockDiff(oldMd,newMd){
 /* ---------- diff view ---------- */
 let changeEls=[];
 function pickLang(from,to){
-  let lang=S.lang,note='';
+  let lang=effLang(),note='';
   if(lang!=='base'&&!(hasLang(from,S.doc,lang)&&hasLang(to,S.doc,lang))){
     const L=langLabel(lang);const lack=[from,to].filter(t=>!hasLang(t,S.doc,lang)).map(t=>ver(t).label).join('、');
     const nz=nearestLang(S.ver,S.doc,lang);
@@ -571,6 +644,6 @@ async function renderSource(page,right,seq){
 }
 
 marked.setOptions({gfm:true,breaks:false});
-window.__gdv={diffSeq,splitBlocks,blockDiff,mergeBlock,renderMd,tokens,S:()=>S,D:()=>D};
+window.__gdv={diffSeq,splitBlocks,blockDiff,mergeBlock,renderMd,tokens,alignBlocks,blockSig,S:()=>S,D:()=>D};
 boot().catch(e=>{$('#page').innerHTML=`<div class="banner err">启动失败：${esc(e.message)}</div>`;console.error(e);});
 })();

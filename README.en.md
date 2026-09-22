@@ -33,6 +33,7 @@ python3 -m gitdocview export --repo ~/repo --out dist/repo-docs.html
 | Compare (source) `3` | Classic line-by-line diff with ±3 lines of context and expandable folded regions |
 | Version overview | Which documents changed in each version (chips are clickable and open the comparison directly), plus that version's CHANGELOG entry |
 | Languages | Translations are detected by file suffix (by default `X.zh.md` is the Chinese version of `X.md`); when a version has no translation it falls back to the original with a notice, and one click switches the comparison to the nearest version that does have one |
+| Bilingual view | The last button of the language group (e.g. "English / 中文"): original and translation shown **paragraph-aligned** side by side, switchable to a stacked layout; paragraphs with no counterpart get an empty dashed box |
 | Appearance settings `,` | See next section |
 
 ## Configuration file
@@ -97,6 +98,10 @@ Notes:
 - The language code itself is arbitrary (`zh` / `cn` / `chinese` all work); it is only the key into `lang_labels` and the identifier used in the URL. Without a `lang_labels` entry the button shows the code as-is.
 - A translation must sit in the **same directory with the same base name** as the original (`a/b.md` ↔ `a/b.cn.md`); otherwise it is not treated as the same document.
 - When a version lacks a translation, the original is shown with a notice; if translations live on another branch, use `translation_commit_pattern` to attach them to the matching tag (see the previous section).
+
+### How the bilingual view aligns paragraphs
+
+The view needs no markers; it aligns on Markdown structure alone. Both documents are split into blocks (the same splitter the rendered diff uses: headings, code fences, tables, lists, plain paragraphs, ...), then a global sequence alignment pairs them: blocks of the same kind pair first (headings only with headings of the same level, code fences only with code fences), and when several same-kind candidates exist, the tie is broken by what survives translation: inline code, links, numbers and Latin identifiers. As long as the translation keeps roughly the same paragraph structure, rows line up one to one; a block that exists on only one side gets its own row with a dashed empty box on the other.
 
 ## Layout
 
